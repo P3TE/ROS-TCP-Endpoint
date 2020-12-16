@@ -59,7 +59,7 @@ class TcpServer:
         tcp_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         tcp_server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         tcp_server.bind((self.tcp_ip, self.tcp_port))
-        threads = []
+        active_threads = []
 
         try:
             while not rospy.is_shutdown():
@@ -69,15 +69,26 @@ class TcpServer:
                 print 'New connection accepted.'
                 new_thread = ClientThread(conn, self, ip, port)
                 new_thread.start()
-                threads.append(new_thread)
+                active_threads.append(new_thread)
+
+                finished_threads = [x for x in active_threads if not x.client_running]
+                if len(finished_threads) > 0:
+                    # Join the threads that have finished operation.
+                    for t in finished_threads:
+                        print 'Shutting down inactive thread.'
+                        t.join(0.1)
+                    # Update the alive thread list.
+                    active_threads = [x for x in active_threads if x.client_running]
+
+                print "Num active threads = {}".format(len(active_threads))
         except Exception as e:
             print("Exception Raised, shutting down server: {}".format(e))
 
-        for t in threads:
+        for t in active_threads:
             t.shutdown_client()
 
-        for t in threads:
-            t.join()
+        for t in active_threads:
+            t.join(1)
 
     def send_unity_error(self, error):
         self.unity_tcp_sender.send_unity_error(error)

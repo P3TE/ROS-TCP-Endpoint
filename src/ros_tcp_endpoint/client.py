@@ -44,6 +44,8 @@ class ClientThread(Thread):
         self.incoming_port = incoming_port
 
     def shutdown_client(self):
+        if not self.client_running:
+            return
         self.client_running = False
         self.conn.close()
 
@@ -53,6 +55,8 @@ class ClientThread(Thread):
             data = b''
             while preamble_read_remaining > 0:
                 raw_bytes = self.conn.recv(preamble_read_remaining)
+                if not raw_bytes:
+                    raise Exception("TCP connection closed!")
                 data += raw_bytes
                 preamble_read_remaining -= len(raw_bytes)
 
@@ -156,7 +160,7 @@ class ClientThread(Thread):
 
             if not self.validate_preamble():
                 print("Invalid preamble from connection, closing connection!")
-                self.conn.close()
+                self.shutdown_client()
                 return
 
             destination = self.read_string()
@@ -175,20 +179,23 @@ class ClientThread(Thread):
 
             if not data:
                 print("No data for a message size of {}, breaking!".format(full_message_size))
+                self.shutdown_client()
                 return
 
             if destination == '__syscommand':
                 self.tcp_server.handle_syscommand(data)
+                self.shutdown_client()
                 return
             elif destination == '__handshake':
                 response = self.tcp_server.unity_tcp_sender.handshake(self.incoming_ip, data)
                 response_message = self.serialize_message(destination, response)
                 self.conn.send(response_message)
+                self.shutdown_client()
                 return
             elif destination not in self.tcp_server.source_destination_dict.keys():
                 error_msg = "Topic/service destination '{}' is not defined! Known topics are: {} "\
                     .format(destination, self.tcp_server.source_destination_dict.keys())
-                self.conn.close()
+                self.shutdown_client()
                 self.tcp_server.send_unity_error(error_msg)
                 raise TopicOrServiceNameDoesNotExistError(error_msg)
             else:
@@ -203,5 +210,5 @@ class ClientThread(Thread):
                     self.conn.send(response_message)
             except Exception as e:
                 print("Exception Raised: {}".format(e))
-                self.conn.close()
+                self.shutdown_client()
                 return
