@@ -61,17 +61,23 @@ class TcpServer:
         tcp_server.bind((self.tcp_ip, self.tcp_port))
         threads = []
 
-        while True:
-            tcp_server.listen(self.connections)
+        try:
+            while not rospy.is_shutdown():
+                tcp_server.listen(self.connections)
 
-            (conn, (ip, port)) = tcp_server.accept()
-            new_thread = ClientThread(conn, self, ip, port)
-            new_thread.start()
-            threads.append(new_thread)
+                (conn, (ip, port)) = tcp_server.accept()
+                print 'New connection accepted.'
+                new_thread = ClientThread(conn, self, ip, port)
+                new_thread.start()
+                threads.append(new_thread)
+        except Exception as e:
+            print("Exception Raised, shutting down server: {}".format(e))
 
-        # Unreachable statements:
-        # for t in threads:
-        #    t.join()
+        for t in threads:
+            t.shutdown_client()
+
+        for t in threads:
+            t.join()
 
     def send_unity_error(self, error):
         self.unity_tcp_sender.send_unity_error(error)

@@ -23,6 +23,8 @@ from .exceptions import TopicOrServiceNameDoesNotExistError
 
 
 class ClientThread(Thread):
+    _Preamble = b'\xfe\xed\xf0\x0d'
+
     """
     Thread class to read all data from a connection and pass along the data to the
     desired source.
@@ -36,9 +38,32 @@ class ClientThread(Thread):
         """
         Thread.__init__(self)
         self.conn = conn
+        self.client_running = True
         self.tcp_server = tcp_server
         self.incoming_ip = incoming_ip
         self.incoming_port = incoming_port
+
+    def shutdown_client(self):
+        self.client_running = False
+        self.conn.close()
+
+    def validate_preamble(self):
+        try:
+            preamble_read_remaining = len(self._Preamble)
+            data = b''
+            while preamble_read_remaining > 0:
+                raw_bytes = self.conn.recv(preamble_read_remaining)
+                data += raw_bytes
+                preamble_read_remaining -= len(raw_bytes)
+
+            if data != self._Preamble:
+                return False
+
+            return True
+        except Exception as e:
+            print("Unable to read preamble from connection. {}".format(e))
+
+        return False
 
     def read_int32(self):
         """
@@ -126,51 +151,57 @@ class ClientThread(Thread):
             msg: the ROS msg type as bytes
 
         """
-        data = b''
+        while self.client_running:
+            data = b''
 
-        destination = self.read_string()
-        full_message_size = self.read_int32()
+            if not self.validate_preamble():
+                print("Invalid preamble from connection, closing connection!")
+                self.conn.close()
+                return
 
-        while len(data) < full_message_size:
-            # Only grabs max of 1024 bytes TODO: change to TCPServer's buffer_size
-            grab = 1024 if full_message_size - len(data) > 1024 else full_message_size - len(data)
-            packet = self.conn.recv(grab)
+            destination = self.read_string()
+            full_message_size = self.read_int32()
 
-            if not packet:
-                print("No packets...")
-                break
+            while len(data) < full_message_size:
+                # Only grabs max of 1024 bytes TODO: change to TCPServer's buffer_size
+                grab = 1024 if full_message_size - len(data) > 1024 else full_message_size - len(data)
+                packet = self.conn.recv(grab)
 
-            data += packet
+                if not packet:
+                    print("No packets...")
+                    break
 
-        if not data:
-            print("No data for a message size of {}, breaking!".format(full_message_size))
-            return
+                data += packet
 
-        if destination == '__syscommand':
-            self.tcp_server.handle_syscommand(data)
-            return
-        elif destination == '__handshake':
-            response = self.tcp_server.unity_tcp_sender.handshake(self.incoming_ip, data)
-            response_message = self.serialize_message(destination, response)
-            self.conn.send(response_message)
-            return
-        elif destination not in self.tcp_server.source_destination_dict.keys():
-            error_msg = "Topic/service destination '{}' is not defined! Known topics are: {} "\
-                .format(destination, self.tcp_server.source_destination_dict.keys())
-            self.conn.close()
-            self.tcp_server.send_unity_error(error_msg)
-            raise TopicOrServiceNameDoesNotExistError(error_msg)
-        else:
-            ros_communicator = self.tcp_server.source_destination_dict[destination]
+            if not data:
+                print("No data for a message size of {}, breaking!".format(full_message_size))
+                return
 
-        try:
-            response = ros_communicator.send(data)
-
-            # Responses only exist for services
-            if response:
+            if destination == '__syscommand':
+                self.tcp_server.handle_syscommand(data)
+                return
+            elif destination == '__handshake':
+                response = self.tcp_server.unity_tcp_sender.handshake(self.incoming_ip, data)
                 response_message = self.serialize_message(destination, response)
                 self.conn.send(response_message)
-        except Exception as e:
-            print("Exception Raised: {}".format(e))
-        finally:
-            self.conn.close()
+                return
+            elif destination not in self.tcp_server.source_destination_dict.keys():
+                error_msg = "Topic/service destination '{}' is not defined! Known topics are: {} "\
+                    .format(destination, self.tcp_server.source_destination_dict.keys())
+                self.conn.close()
+                self.tcp_server.send_unity_error(error_msg)
+                raise TopicOrServiceNameDoesNotExistError(error_msg)
+            else:
+                ros_communicator = self.tcp_server.source_destination_dict[destination]
+
+            try:
+                response = ros_communicator.send(data)
+
+                # Responses only exist for services
+                if response:
+                    response_message = self.serialize_message(destination, response)
+                    self.conn.send(response_message)
+            except Exception as e:
+                print("Exception Raised: {}".format(e))
+                self.conn.close()
+                return
