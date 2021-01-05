@@ -13,6 +13,7 @@
 #  limitations under the License.
 
 import rospy
+from sensor_msgs.msg import CameraInfo
 
 from .communication import RosSender
 

@@ -16,6 +16,7 @@ import struct
 import socket
 import rospy
 from io import BytesIO
+import codecs
 
 from threading import Thread
 
@@ -50,24 +51,20 @@ class ClientThread(Thread):
         self.conn.close()
 
     def validate_preamble(self):
-        try:
-            preamble_read_remaining = len(self._Preamble)
-            data = b''
-            while preamble_read_remaining > 0:
-                raw_bytes = self.conn.recv(preamble_read_remaining)
-                if not raw_bytes:
-                    raise Exception("TCP connection closed!")
-                data += raw_bytes
-                preamble_read_remaining -= len(raw_bytes)
+        preamble_read_remaining = len(self._Preamble)
+        data = b''
+        while preamble_read_remaining > 0:
+            raw_bytes = self.conn.recv(preamble_read_remaining)
+            if not raw_bytes:
+                raise Exception("TCP connection closed!")
+            data += raw_bytes
+            preamble_read_remaining -= len(raw_bytes)
 
-            if data != self._Preamble:
-                return False
+        if data != self._Preamble:
+            raise Exception("Invalid preamble - Received data with length {0:n}: {1}{2}{3}{4} ".format(len(data),
+                codecs.encode(data[0], "hex"), codecs.encode(data[1], "hex"), codecs.encode(data[2], "hex"), codecs.encode(data[3], "hex")))
 
-            return True
-        except Exception as e:
-            print("Unable to read preamble from connection. {}".format(e))
-
-        return False
+        return True
 
     def read_int32(self):
         """
@@ -158,8 +155,10 @@ class ClientThread(Thread):
         while self.client_running:
             data = b''
 
-            if not self.validate_preamble():
-                print("Invalid preamble from connection, closing connection!")
+            try:
+                self.validate_preamble()
+            except Exception as e:
+                print("Exception Raised: {}".format(e))
                 self.shutdown_client()
                 return
 
