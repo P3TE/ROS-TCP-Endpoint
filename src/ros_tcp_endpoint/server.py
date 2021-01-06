@@ -51,44 +51,51 @@ class TcpServer:
         self.syscommands = SysCommands(self)
 
     def start(self):
-        """
-            Creates and binds sockets using TCP variables then listens for incoming connections.
-            For each new connection a client thread will be created to handle communication.
-        """
-        rospy.loginfo("Starting server on {}:{}".format(self.tcp_ip, self.tcp_port))
-        tcp_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        tcp_server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        tcp_server.bind((self.tcp_ip, self.tcp_port))
-        active_threads = []
 
-        try:
-            while not rospy.is_shutdown():
-                tcp_server.listen(self.connections)
+        while not rospy.is_shutdown():
+            try:
+                """
+                    Creates and binds sockets using TCP variables then listens for incoming connections.
+                    For each new connection a client thread will be created to handle communication.
+                """
+                rospy.loginfo("Starting server on {}:{}".format(self.tcp_ip, self.tcp_port))
+                tcp_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                tcp_server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                tcp_server.bind((self.tcp_ip, self.tcp_port))
+                active_threads = []
 
-                (conn, (ip, port)) = tcp_server.accept()
-                print 'New connection accepted.'
-                new_thread = ClientThread(conn, self, ip, port)
-                new_thread.start()
-                active_threads.append(new_thread)
+                while not rospy.is_shutdown():
+                    tcp_server.listen(self.connections)
 
-                finished_threads = [x for x in active_threads if not x.client_running]
-                if len(finished_threads) > 0:
-                    # Join the threads that have finished operation.
-                    for t in finished_threads:
-                        print 'Shutting down inactive thread.'
-                        t.join(0.1)
-                    # Update the alive thread list.
-                    active_threads = [x for x in active_threads if x.client_running]
+                    (conn, (ip, port)) = tcp_server.accept()
+                    print 'New connection accepted.'
+                    new_thread = ClientThread(conn, self, ip, port)
+                    new_thread.start()
+                    active_threads.append(new_thread)
 
-                print "Num active threads = {}".format(len(active_threads))
-        except Exception as e:
-            print("Exception Raised, shutting down server: {}".format(e))
+                    finished_threads = [x for x in active_threads if not x.client_running]
+                    if len(finished_threads) > 0:
+                        # Join the threads that have finished operation.
+                        for t in finished_threads:
+                            print 'Shutting down inactive thread.'
+                            t.join(0.1)
+                        # Update the alive thread list.
+                        active_threads = [x for x in active_threads if x.client_running]
 
-        for t in active_threads:
-            t.shutdown_client()
+                    print "Num active threads = {}".format(len(active_threads))
+            except Exception as e:
+                print("Exception Raised, shutting down server: {}".format(e))
 
-        for t in active_threads:
-            t.join(1)
+            for t in active_threads:
+                t.shutdown_client()
+
+            for t in active_threads:
+                t.join(1)
+
+            try:
+                tcp_server.close()
+            except Exception as e:
+                print("Failed to close server... ignoring: {}".format(e))
 
     def send_unity_error(self, error):
         self.unity_tcp_sender.send_unity_error(error)
