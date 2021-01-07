@@ -70,6 +70,7 @@ class TcpServer:
 
                     (conn, (ip, port)) = tcp_server.accept()
                     print 'New connection accepted.'
+                    conn.settimeout(9999999)
                     new_thread = ClientThread(conn, self, ip, port)
                     new_thread.start()
                     active_threads.append(new_thread)
