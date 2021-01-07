@@ -65,6 +65,7 @@ class TcpServer:
                 active_threads = []
 
                 while not rospy.is_shutdown():
+                    tcp_server.settimeout(9999999)
                     tcp_server.listen(self.connections)
 
                     (conn, (ip, port)) = tcp_server.accept()
