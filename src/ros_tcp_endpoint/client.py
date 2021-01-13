@@ -176,6 +176,11 @@ class ClientThread(Thread):
 
                 data += packet
 
+            if destination is None:
+                print("Received an empty destination, ignoring.")
+                self.shutdown_client()
+                return
+
             if not data and full_message_size > 0:
                 print("No data for a message size of {}, breaking!".format(full_message_size))
                 self.shutdown_client()
