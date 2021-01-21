@@ -176,7 +176,7 @@ class ClientThread(Thread):
 
                 data += packet
 
-            if not data:
+            if not data and full_message_size != 0:
                 print("No data for a message size of {}, breaking!".format(full_message_size))
                 self.shutdown_client()
                 return

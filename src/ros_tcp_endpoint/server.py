@@ -69,7 +69,7 @@ class TcpServer:
                     tcp_server.listen(self.connections)
 
                     (conn, (ip, port)) = tcp_server.accept()
-                    print 'New connection accepted.'
+                    print("New connection accepted.")
                     conn.settimeout(9999999)
                     new_thread = ClientThread(conn, self, ip, port)
                     new_thread.start()
@@ -79,12 +79,12 @@ class TcpServer:
                     if len(finished_threads) > 0:
                         # Join the threads that have finished operation.
                         for t in finished_threads:
-                            print 'Shutting down inactive thread.'
+                            print('Shutting down inactive thread.')
                             t.join(0.1)
                         # Update the alive thread list.
                         active_threads = [x for x in active_threads if x.client_running]
 
-                    print "Num active threads = {}".format(len(active_threads))
+                    print("Num active threads = {}".format(len(active_threads)))
             except Exception as e:
                 print("Exception Raised, shutting down server: {}".format(e))
 
