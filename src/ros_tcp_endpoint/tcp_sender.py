@@ -25,6 +25,8 @@ class UnityTcpSender:
     """
     def __init__(self, unity_ip, unity_port):
         self.unity_ip = unity_ip
+        self.unity_ip_error_message_printed = False
+        self.most_recent_exception_message = ""
         self.unity_port = unity_port
         # if we have a valid IP at this point, it was overridden locally so always use that
         self.ip_is_overridden = (self.unity_ip != '')
@@ -41,6 +43,7 @@ class UnityTcpSender:
                 # otherwise Unity has set an IP override, so use that
                 self.unity_ip = message.ip
         print("ROS-Unity Handshake received, will connect to {}:{}".format(self.unity_ip, self.unity_port))
+        self.most_recent_exception_message = ""
         return UnityHandshakeResponse(self.unity_ip)
 
     def send_unity_error(self, error):
@@ -48,9 +51,12 @@ class UnityTcpSender:
 
     def send_unity_message(self, topic, message):
         if self.unity_ip == '':
-            print("Can't send a message, no defined unity IP!".format(topic, message))
+            if not self.unity_ip_error_message_printed:
+                self.unity_ip_error_message_printed = True
+                print("Can't send a message, no defined unity IP!".format(topic, message))
             return
 
+        self.unity_ip_error_message_printed = False
         serialized_message = ClientThread.serialize_message(topic, message)
 
         try:
@@ -61,4 +67,7 @@ class UnityTcpSender:
             s.send(serialized_message)
             s.close()
         except Exception as e:
-            rospy.loginfo("Exception {}".format(e))
+            exception_message = "Exception {}".format(e)
+            if not exception_message == self.most_recent_exception_message:
+                self.most_recent_exception_message = exception_message
+                rospy.loginfo(exception_message)
