@@ -37,6 +37,10 @@ class RosSubscriber(RosReceiver):
         self.msg = message_class
         self.tcp_server = tcp_server
         self.queue_size = queue_size
+        self.socket = None
+        self.connected = False
+        self.most_recent_exception_message = ""
+        self.subscriber = None
 
         # Start Subscriber listener function
         self.listener()
@@ -51,9 +55,49 @@ class RosSubscriber(RosReceiver):
             self.msg: The deserialize message
 
         """
+        if rospy.is_shutdown():
+            return
 
-        self.tcp_server.send_unity_message(self.topic, data)
+        if not self.connected:
+            if self.create_new_connection():
+                self.connected = True
+            else:
+                return
+
+        try:
+            serialized_message = ClientThread.serialize_message(self.topic, data)
+            self.socket.send(serialized_message)
+        except Exception as e:
+            self.close_connection_if_applicable()
+            exception_message = "Exception {}".format(e)
+            if not exception_message == self.most_recent_exception_message:
+                self.most_recent_exception_message = exception_message
+                rospy.loginfo(exception_message)
+
         return self.msg
+
+    def create_new_connection(self):
+        # print("Attempting to creat a new connection for topic {}".format(self.topic))
+        if self.tcp_server.unity_tcp_sender.unity_ip == '':
+            if not self.tcp_server.unity_tcp_sender.unity_ip_error_message_printed:
+                self.tcp_server.unity_tcp_sender.unity_ip_error_message_printed = True
+                print("Can't send a message on topic {}, no defined unity IP!".format(self.topic))
+            return False
+
+        # print("Creating a new connection")
+        try:
+            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.socket.settimeout(999999)
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.socket.connect((self.tcp_server.unity_tcp_sender.unity_ip, self.tcp_server.unity_tcp_sender.unity_port))
+            return True
+        except Exception as e:
+            exception_message = "Exception {}".format(e)
+            if not exception_message == self.most_recent_exception_message:
+                self.most_recent_exception_message = exception_message
+                rospy.loginfo(exception_message)
+
+        return False
 
     def listener(self):
         """
@@ -61,4 +105,16 @@ class RosSubscriber(RosReceiver):
         Returns:
 
         """
-        rospy.Subscriber(self.topic, self.msg, self.send)
+        self.subscriber = rospy.Subscriber(self.topic, self.msg, self.send)
+
+    def close_connection_if_applicable(self):
+        self.connected = False
+        if self.socket is not None:
+            try:
+                self.socket.close()
+            except Exception:
+                pass
+
+    def unregister_subscriber(self):
+        if self.subscriber is not None:
+            self.subscriber.unregister()

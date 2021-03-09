@@ -16,6 +16,7 @@ import rospy
 import socket
 import json
 import sys
+import os
 
 from .tcp_sender import UnityTcpSender
 from .client import ClientThread
@@ -88,16 +89,33 @@ class TcpServer:
             except Exception as e:
                 print("Exception Raised, shutting down server: {}".format(e))
 
-            for t in active_threads:
-                t.shutdown_client()
+            print("ROS Tcp bridge shutting down.")
 
-            for t in active_threads:
-                t.join(1)
-
+            print("Stopping server.")
             try:
                 tcp_server.close()
             except Exception as e:
                 print("Failed to close server... ignoring: {}".format(e))
+
+            print("Shutting down Publishers / Services.")
+            for t in active_threads:
+                t.shutdown_client()
+
+            print("Shutting down Subscribers.")
+            for key in self.source_destination_dict:
+                val = self.source_destination_dict[key]
+                if val is RosSubscriber:
+                    val.unregister_subscriber()
+                    val.close_connection_if_applicable()
+
+            print("Joining threads.")
+            for t in active_threads:
+                t.join(1)
+
+            print("Shutdown complete.")
+            # exit(0)
+            # print("Force exit.")
+            os._exit(0)
 
     def send_unity_error(self, error):
         self.unity_tcp_sender.send_unity_error(error)
