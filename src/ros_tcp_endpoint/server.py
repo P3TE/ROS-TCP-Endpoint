@@ -51,6 +51,12 @@ class TcpServer:
         self.connections = connections
         self.syscommands = SysCommands(self)
 
+    def reset_all_subscribers(self):
+        rospy.loginfo("Resetting all subscribers")
+        for key, value in self.source_destination_dict.iteritems():
+            if isinstance(value, RosSubscriber):
+                value.close_connection_if_applicable()
+
     def start(self):
 
         while not rospy.is_shutdown():

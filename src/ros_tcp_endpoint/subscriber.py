@@ -45,7 +45,11 @@ class RosSubscriber(RosReceiver):
         # Start Subscriber listener function
         self.listener()
 
-    def send(self, data):
+    def send_attempt(self, data, send_count):
+        if send_count > 2:
+            # Don't try resending indefinitely.
+            return
+
         """
         Connect to TCP endpoint on client and pass along message
         Args:
@@ -73,11 +77,15 @@ class RosSubscriber(RosReceiver):
             if not exception_message == self.most_recent_exception_message:
                 self.most_recent_exception_message = exception_message
                 rospy.loginfo(exception_message)
+            # Try resending, but not indefinitely.
+            self.send_attempt(data, send_count + 1)
 
         return self.msg
 
+    def send(self, data):
+        return self.send_attempt(data, 1)
+
     def create_new_connection(self):
-        # print("Attempting to creat a new connection for topic {}".format(self.topic))
         if self.tcp_server.unity_tcp_sender.unity_ip == '':
             if not self.tcp_server.unity_tcp_sender.unity_ip_error_message_printed:
                 self.tcp_server.unity_tcp_sender.unity_ip_error_message_printed = True
@@ -105,6 +113,7 @@ class RosSubscriber(RosReceiver):
         Returns:
 
         """
+        print("Subscribing to {}".format(self.topic))
         self.subscriber = rospy.Subscriber(self.topic, self.msg, self.send)
 
     def close_connection_if_applicable(self):

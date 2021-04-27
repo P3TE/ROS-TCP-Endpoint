@@ -193,6 +193,13 @@ class ClientThread(Thread):
             elif destination == '__handshake':
                 response = self.tcp_server.unity_tcp_sender.handshake(self.incoming_ip, data)
                 response_message = self.serialize_message(destination, response)
+                self.tcp_server.reset_all_subscribers()
+                self.conn.send(response_message)
+                self.shutdown_client()
+                return
+            elif destination == '__check_connection':
+                response = self.tcp_server.unity_tcp_sender.check_connection(self.incoming_ip, data)
+                response_message = self.serialize_message(destination, response)
                 self.conn.send(response_message)
                 self.shutdown_client()
                 return

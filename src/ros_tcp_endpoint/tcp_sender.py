@@ -46,6 +46,14 @@ class UnityTcpSender:
         self.most_recent_exception_message = ""
         return UnityHandshakeResponse(self.unity_ip)
 
+    def check_connection(self, incoming_ip, data):
+        message = UnityHandshake._request_class().deserialize(data)
+        print("ROS-Unity Check Connection received from {}:{}".format(self.unity_ip, self.unity_port))
+        result = ""
+        if self.ip_is_overridden:
+            result = "{}:{}".format(self.unity_ip, self.unity_port)
+        return UnityHandshakeResponse(result)
+
     def send_unity_error(self, error):
         self.send_unity_message("__error", RosUnityError(error))
 
