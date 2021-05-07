@@ -158,7 +158,7 @@ class ClientThread(Thread):
             try:
                 self.validate_preamble()
             except Exception as e:
-                print("Exception Raised: {}".format(e))
+                print("Exception Raised when validating preamble: {}".format(e))
                 self.shutdown_client()
                 return
 
@@ -220,6 +220,6 @@ class ClientThread(Thread):
                     response_message = self.serialize_message(destination, response)
                     self.conn.send(response_message)
             except Exception as e:
-                print("Exception Raised: {}".format(e))
+                print("Exception Raised for destination {}: {}".format(destination, e))
                 self.shutdown_client()
                 return
