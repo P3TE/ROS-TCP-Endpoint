@@ -118,11 +118,11 @@ class ClientThread(threading.Thread):
             rospy.logerr("No data for a message size of {}, breaking!".format(full_message_size))
             return
 
-        if full_message_size > 10000:
-            endTime = time.time()
-            timeDiff = (endTime - startTime) * 1000
-            outputMessage = "Read data of length " + str(full_message_size) + " took " + str(timeDiff) + "ms"
-            rospy.loginfo(outputMessage)
+        # if full_message_size > 10000:
+        #     endTime = time.time()
+        #     timeDiff = (endTime - startTime) * 1000
+        #     outputMessage = "Read data of length " + str(full_message_size) + " took " + str(timeDiff) + "ms"
+        #     rospy.loginfo(outputMessage)
 
         return destination, data
 
