@@ -156,7 +156,7 @@ class ClientThread(threading.Thread):
             error_msg = "Service destination '{}' is not registered! Known services are: {} ".format(
                 destination, self.tcp_server.ros_services_table.keys()
             )
-            self.tcp_server.send_unity_error(error_msg)
+            self.tcp_server.send_service_error(srv_id, error_msg)
             self.tcp_server.logerr(error_msg)
             # TODO: send a response to Unity anyway?
             return
@@ -173,7 +173,7 @@ class ClientThread(threading.Thread):
 
         if not response:
             error_msg = "No response data from service '{}'!".format(destination)
-            self.tcp_server.send_unity_error(error_msg)
+            self.tcp_server.send_service_failure(srv_id, error_msg)
             self.tcp_server.logerr(error_msg)
             # TODO: send a response to Unity anyway?
             return

@@ -99,6 +99,12 @@ class TcpServer:
     def send_unity_error(self, error):
         self.unity_tcp_sender.send_unity_error(error)
 
+    def send_service_failure(self, srv_id, error_message):
+        self.unity_tcp_sender.send_service_failure(srv_id, error_message)
+
+    def send_service_error(self, srv_id, error_message):
+        self.unity_tcp_sender.send_service_error(srv_id, error_message)
+
     def send_unity_message(self, topic, message):
         self.unity_tcp_sender.send_unity_message(topic, message)
 

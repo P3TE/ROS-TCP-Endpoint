@@ -72,6 +72,22 @@ class UnityTcpSender:
             serialized_bytes = ClientThread.serialize_command("__error", command)
             self.queue.put(serialized_bytes)
 
+    def send_service_failure(self, srv_id, error_message):
+        if self.queue is not None:
+            command = SysCommand_ServiceError()
+            command.srv_id = srv_id
+            command.error_message = error_message
+            serialized_bytes = ClientThread.serialize_command("__unity_service_failed", command)
+            self.queue.put(serialized_bytes)
+
+    def send_service_error(self, srv_id, error_message):
+        if self.queue is not None:
+            command = SysCommand_ServiceError()
+            command.srv_id = srv_id
+            command.error_message = error_message
+            serialized_bytes = ClientThread.serialize_command("__unity_service_error", command)
+            self.queue.put(serialized_bytes)
+
     def send_ros_service_response(self, srv_id, destination, response):
         if self.queue is not None:
             command = SysCommand_Service()
@@ -203,6 +219,12 @@ class UnityTcpSender:
 class SysCommand_Log:
     def __init__(self):
         self.text = ""
+
+
+class SysCommand_ServiceError:
+    def __init__(self):
+        self.srv_id = 0
+        self.error_message = ""
 
 
 class SysCommand_Service:
