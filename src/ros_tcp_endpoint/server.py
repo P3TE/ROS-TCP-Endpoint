@@ -115,7 +115,10 @@ class TcpServer:
         self.unity_tcp_sender.send_unity_service_response(srv_id, data)
 
     def handle_syscommand(self, topic, data):
-        function = getattr(self.syscommands, topic[2:])
+        try:
+            function = getattr(self.syscommands, topic[2:])
+        except:
+            function = None
         if function is None:
             self.send_unity_error("Don't understand SysCommand.'{}'".format(topic))
         else:
