@@ -169,6 +169,22 @@ class SysCommands:
 
         self.tcp_server.loginfo("RegisterSubscriber({}, {}) OK".format(topic, message_class))
 
+    def remove_subscriber(self, topic):
+        if topic not in self.tcp_server.subscribers_table:
+            self.tcp_server.send_unity_error(
+                "Unable to remove subscriber {} as is it not known!".format(
+                    topic
+                )
+            )
+            return
+        
+        # Unregister the subscribed topic.
+        subscriber_to_remove = self.tcp_server.subscribers_table[topic]
+        subscriber_to_remove.unregister()
+        del self.tcp_server.subscribers_table[topic]
+
+        self.tcp_server.loginfo("UnregisterSubscriber({}) OK".format(topic))
+
     def publish(self, topic, message_name, queue_size=10, latch=False):
         if topic == "":
             self.tcp_server.send_unity_error(
@@ -186,6 +202,10 @@ class SysCommands:
             return
 
         old_node = self.tcp_server.publishers_table.get(topic)
+        # I'm not sure whether unregister_node needs to be called all the time.
+        # My best guess is to account for a new message_class on the same topic.
+        # However the it may be contributing to the open file leak problem.
+        # Perhaps we should only be doing this if message_class, queue_size or latch has changed.
         if old_node is not None:
             self.tcp_server.unregister_node(old_node)
 
