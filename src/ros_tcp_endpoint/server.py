@@ -163,6 +163,7 @@ class SysCommands:
         old_node = self.tcp_server.subscribers_table.get(topic)
         if old_node is not None:
             self.tcp_server.unregister_node(old_node)
+            self.tcp_server.loginfo("Unregistering old Subscriber({}, {}) OK".format(topic, message_class))
 
         new_subscriber = RosSubscriber(topic, message_class, self.tcp_server)
         self.tcp_server.subscribers_table[topic] = new_subscriber
