@@ -125,6 +125,12 @@ class ClientThread(threading.Thread):
         dest_info = struct.pack("<I%ss" % length, length, dest_bytes)
 
         serial_response = BytesIO()
+
+        was_latched = False
+
+        if (message._connection_header and "latching" in message._connection_header):
+            was_latched = message._connection_header["latching"] == "1"
+        
         message.serialize(serial_response)
 
         # Per documention, https://docs.python.org/3.8/library/io.html#io.IOBase.seek,
@@ -135,7 +141,7 @@ class ClientThread(threading.Thread):
         response_len = serial_response.seek(0, 2)
 
         msg_length = struct.pack("<I", response_len)
-        serialized_message = dest_info + msg_length + serial_response.getvalue()
+        serialized_message = dest_info + msg_length + serial_response.getvalue() + struct.pack("?", was_latched)
 
         return serialized_message
 
@@ -149,7 +155,7 @@ class ClientThread(threading.Thread):
         json_length = len(json_bytes)
         json_info = struct.pack("<I%ss" % json_length, json_length, json_bytes)
 
-        return cmd_info + json_info
+        return cmd_info + json_info + struct.pack("?", False)
 
     def send_ros_service_request(self, srv_id, destination, data):
         if destination not in self.tcp_server.ros_services_table.keys():
