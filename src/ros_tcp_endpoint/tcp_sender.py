@@ -19,6 +19,8 @@ import threading
 import struct
 import json
 
+from std_msgs.msg import Time
+
 from .client import ClientThread
 from .thread_pauser import ThreadPauser
 from io import BytesIO
@@ -215,6 +217,17 @@ class UnityTcpSender:
             self.tcp_server.logerr("Failed to resolve message name: {}".format(e))
             return None
 
+    def send_clock_info(self, clockMsg: Time):
+        if self.queue is not None:
+            wallTime = rospy.Time.from_sec(time.time())
+            command = SysCommand_ClockInfo()
+            command.clock_secs = clockMsg.secs
+            command.clock_nsecs = clockMsg.nsecs
+            command.wall_secs = wallTime.secs
+            command.wall_nsecs = wallTime.nsecs
+            serialized_bytes = ClientThread.serialize_command("__clock_info", command)
+            self.queue.put(serialized_bytes)
+
 
 class SysCommand_Log:
     def __init__(self):
@@ -252,3 +265,11 @@ class SysCommand_Handshake:
 class SysCommand_Handshake_Metadata:
     def __init__(self):
         self.protocol = "ROS1"
+
+
+class SysCommand_ClockInfo:
+    def __init__(self):
+        self.clock_secs = 0
+        self.clock_nsecs = 0
+        self.wall_secs = 0
+        self.wall_nsecs = 0

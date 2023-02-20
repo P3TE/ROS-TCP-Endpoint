@@ -20,12 +20,16 @@ import sys
 import threading
 import importlib
 
+from std_msgs.msg import Time, Float32
+from rosgraph_msgs.msg import Clock
+
 from .tcp_sender import UnityTcpSender
 from .client import ClientThread
 from .subscriber import RosSubscriber
 from .publisher import RosPublisher
 from .service import RosService
 from .unity_service import UnityService
+from .ros_clock import ClockTimings
 
 
 class TcpServer:
@@ -66,6 +70,22 @@ class TcpServer:
         self.syscommands = SysCommands(self)
         self.pending_srv_id = None
         self.pending_srv_is_request = False
+
+        self.use_sim_time = rospy.get_param("/use_sim_time", False)
+        if not self.use_sim_time:
+            # Start Subscriber listener function
+            rospy.loginfo("use_sim_time is false, assuming ros wall time will be used.")
+            # TODO - Implement.
+            self.clock_timings = ClockTimings()
+            self.clock_sub = rospy.Subscriber('/clock', Clock, self.on_clock_received)
+            self.time_scale_sub = rospy.Subscriber('/time_scale', Float32, self.on_time_scale_received)
+
+    def on_clock_received(self, clock: Clock):
+        self.clock_timings.on_new_entry_received(clock.clock)
+        self.send_clock_info(clock.clock)
+
+    def on_time_scale_received(self, time_scale: Float32):
+        self.clock_timings.on_time_scale_from_topic_received(time_scale.data)
 
     def start(self, publishers=None, subscribers=None):
         if publishers is not None:
@@ -113,6 +133,9 @@ class TcpServer:
 
     def send_unity_service_response(self, srv_id, data):
         self.unity_tcp_sender.send_unity_service_response(srv_id, data)
+
+    def send_clock_info(self, clockMsg: Time):
+        self.unity_tcp_sender.send_clock_info(clockMsg)
 
     def handle_syscommand(self, topic, data):
         try:
