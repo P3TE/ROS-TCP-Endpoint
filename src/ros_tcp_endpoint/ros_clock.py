@@ -22,10 +22,10 @@ DEFAULT_TIME_SCALE=1.0
 TIMING_HISTORY_COUNT=50
 # If this many seconds pass without a /time_scale message, but /clock messages are 
 # still being received then it will switch back to approximate time scale
-NO_TIMESCALE_MESSAGE_TIMEOUT_SECONDS=3.0
+NO_TIMESCALE_MESSAGE_TIMEOUT_SECONDS=1.0
 # If this many seconds pass without a /clock message, 
 # but then a new /clock message is received, it will clear the history
-CLEAR_HISTORY_TIMEOUT=3.0
+CLEAR_HISTORY_TIMEOUT=1.0
 
 class ClockTiming():
     """
@@ -54,17 +54,31 @@ class ClockTimings():
         self.time_scale_from_topic = DEFAULT_TIME_SCALE
 
         self.is_paused = False
+        self.should_reset_clock_time = False
 
     def get_current_time_scale(self):
+        if self.is_paused:
+            return 0.0
+
         if self.use_time_scale_from_topic:
             return self.time_scale_from_topic
 
         return self.approximate_timescale
 
+    def get_current_clock_time(self) -> rospy.Time:
+        if len(self.timings) == 0:
+            return rospy.Time()
+        
+        newest_timing : ClockTiming = self.timings[-1]
+        return newest_timing.clock_time
+
     def update_estimated_timescale(self):
         if len(self.timings) <= 1:
             self.approximate_timescale = DEFAULT_TIME_SCALE
+            self.should_reset_clock_time = True
             return
+
+        self.should_reset_clock_time = False
         
         oldest_timing : ClockTiming = self.timings[0]
         newest_timing : ClockTiming = self.timings[-1]
@@ -76,7 +90,9 @@ class ClockTimings():
 
         self.approximate_timescale = clock_time_difference_total_seconds / wall_time_difference_total_seconds
 
-        if self.use_time_scale_from_topic:
+        if self.is_paused:
+            rospy.loginfo("[Paused] time scale = {}".format(self.get_current_time_scale()))
+        elif self.use_time_scale_from_topic:
             rospy.loginfo("[Topic] time scale = {}".format(self.get_current_time_scale()))
         else:
             rospy.loginfo("[Approx] time scale = {}".format(self.get_current_time_scale()))
@@ -92,11 +108,19 @@ class ClockTimings():
                 self.use_time_scale_from_topic = False
 
         if len(self.timings) > 0:
-            # Check for duplicate time messages to indicate time has stopped.
-            clock_time_since_last_message : rospy.Duration = clock_time - self.timings[-1].clock_time
-            if clock_time_since_last_message.is_zero():
-                rospy.loginfo("Paused.")
+
+            most_recent_timing: ClockTiming = self.timings[-1]
+            clock_time_since_last_message : rospy.Duration = clock_time - most_recent_timing.clock_time
+
+            if clock_time_since_last_message.to_sec() < 0:
+                # A jump back in time usually indicates a new ros bag has started playing.
+                rospy.loginfo("Jump backward in time detected, clearing all timings. clock_time_since_last_message.to_sec() = {}".format(clock_time_since_last_message.to_sec()))
+                self.timings.clear()
+            elif clock_time_since_last_message.is_zero():
+                # Duplicate time messages to indicate time has stopped.
+                rospy.loginfo("Duplicate time message received, Assuming time paused.")
                 self.is_paused = True
+                return
             else:
                 wall_time_since_last_clock_message_seconds = time.time() - self.timings[-1].wall_time
                 # Check whether we should clear all stored timings as it's been a while since a stored message.
@@ -117,6 +141,11 @@ class ClockTimings():
         self.update_estimated_timescale()
 
     def on_time_scale_from_topic_received(self, time_scale: float):
+
+        time_scale_changed = (not self.use_time_scale_from_topic) or (self.time_scale_from_topic != time_scale)
+
         self.time_scale_from_topic = time_scale
         self.time_of_last_received_time_scale = time.time()
         self.use_time_scale_from_topic = True
+
+        return time_scale_changed

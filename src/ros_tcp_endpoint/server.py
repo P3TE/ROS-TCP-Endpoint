@@ -82,10 +82,12 @@ class TcpServer:
 
     def on_clock_received(self, clock: Clock):
         self.clock_timings.on_new_entry_received(clock.clock)
-        self.send_clock_info(clock.clock)
+        self.send_clock_info(self.clock_timings)
 
     def on_time_scale_received(self, time_scale: Float32):
-        self.clock_timings.on_time_scale_from_topic_received(time_scale.data)
+        should_send_updated_clock_info = self.clock_timings.on_time_scale_from_topic_received(time_scale.data)
+        if should_send_updated_clock_info:
+            self.send_clock_info(self.clock_timings)
 
     def start(self, publishers=None, subscribers=None):
         if publishers is not None:
@@ -134,8 +136,12 @@ class TcpServer:
     def send_unity_service_response(self, srv_id, data):
         self.unity_tcp_sender.send_unity_service_response(srv_id, data)
 
-    def send_clock_info(self, clockMsg: Time):
-        self.unity_tcp_sender.send_clock_info(clockMsg)
+    def send_clock_info(self, clock_timings: ClockTimings):
+        self.unity_tcp_sender.send_clock_info(
+            clock_timings.get_current_clock_time(), 
+            clock_timings.get_current_time_scale(), 
+            clock_timings.is_paused,
+            clock_timings.should_reset_clock_time)
 
     def handle_syscommand(self, topic, data):
         try:

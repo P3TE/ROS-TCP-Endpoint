@@ -217,7 +217,7 @@ class UnityTcpSender:
             self.tcp_server.logerr("Failed to resolve message name: {}".format(e))
             return None
 
-    def send_clock_info(self, clockMsg: Time):
+    def send_clock_info(self, clockMsg: Time, timeScale: float, isPaused: bool, shouldResetClockTime: bool):
         if self.queue is not None:
             wallTime = rospy.Time.from_sec(time.time())
             command = SysCommand_ClockInfo()
@@ -225,6 +225,9 @@ class UnityTcpSender:
             command.clock_nsecs = clockMsg.nsecs
             command.wall_secs = wallTime.secs
             command.wall_nsecs = wallTime.nsecs
+            command.time_scale = timeScale
+            command.is_paused = isPaused
+            command.should_reset_clock_time = shouldResetClockTime
             serialized_bytes = ClientThread.serialize_command("__clock_info", command)
             self.queue.put(serialized_bytes)
 
@@ -273,3 +276,6 @@ class SysCommand_ClockInfo:
         self.clock_nsecs = 0
         self.wall_secs = 0
         self.wall_nsecs = 0
+        self.time_scale = 1.0
+        self.is_paused = False
+        self.should_reset_clock_time = False
