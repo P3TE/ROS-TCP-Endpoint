@@ -19,6 +19,7 @@ import json
 import sys
 import threading
 import importlib
+import time
 
 from std_msgs.msg import Time, Float32
 from rosgraph_msgs.msg import Clock
@@ -79,6 +80,7 @@ class TcpServer:
             self.clock_timings = ClockTimings()
             self.clock_sub = rospy.Subscriber('/clock', Clock, self.on_clock_received)
             self.time_scale_sub = rospy.Subscriber('/time_scale', Float32, self.on_time_scale_received)
+            self.time_of_last_relayed_clock = None
 
     def on_clock_received(self, clock: Clock):
         self.clock_timings.on_new_entry_received(clock.clock)
@@ -98,6 +100,34 @@ class TcpServer:
         # Exit the server thread when the main thread terminates
         server_thread.daemon = True
         server_thread.start()
+
+        if self.clock_timings is not None:
+            clock_info_relay_thread = threading.Thread(target=self.relay_clock_info_loop)
+            # daemon = True means the program can automatically exit even if this thread is still running.
+            clock_info_relay_thread.daemon = True
+            clock_info_relay_thread.start()
+
+    def relay_clock_info_loop(self):
+        """
+            This thread ensures that new clock info messages are sent through at a regular rate
+            whether or not the /clock or /time_scale topics have data being published.
+        """
+        MAX_TIME_BETWEEN_CLOCK_INFOS_SECONDS = 0.1
+
+        while True:
+
+            time.sleep(MAX_TIME_BETWEEN_CLOCK_INFOS_SECONDS)
+
+            send_clock_info = True
+
+            if self.time_of_last_relayed_clock is not None:
+                time_since_sent_clock_info_seconds = time.time() - self.time_of_last_relayed_clock
+                
+                if time_since_sent_clock_info_seconds < MAX_TIME_BETWEEN_CLOCK_INFOS_SECONDS:
+                    send_clock_info = False
+                    
+            if send_clock_info:
+                self.send_clock_info(self.clock_timings)
 
     def listen_loop(self):
         """
@@ -137,6 +167,7 @@ class TcpServer:
         self.unity_tcp_sender.send_unity_service_response(srv_id, data)
 
     def send_clock_info(self, clock_timings: ClockTimings):
+        self.time_of_last_relayed_clock = time.time()
         self.unity_tcp_sender.send_clock_info(
             clock_timings.get_current_clock_time(), 
             clock_timings.get_current_time_scale(), 
