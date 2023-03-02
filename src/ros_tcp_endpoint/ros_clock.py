@@ -113,7 +113,7 @@ class ClockTimings():
             # Check whether we are moving back to approximate time.
             time_since_last_time_scale_message_seconds = time.time() - self.time_of_last_received_time_scale
             if time_since_last_time_scale_message_seconds > NO_TIMESCALE_MESSAGE_TIMEOUT_SECONDS:
-                rospy.loginfo("Moving back to approximate time scale. time_since_last_time_scale_message_seconds = {}".format(time_since_last_time_scale_message_seconds))
+                # Moving back to approximate time scale
                 self.use_time_scale_from_topic = False
 
         if len(self.timings) > 0:
@@ -123,11 +123,9 @@ class ClockTimings():
 
             if clock_time_since_last_message.to_sec() < 0:
                 # A jump back in time usually indicates a new ros bag has started playing.
-                rospy.loginfo("Jump backward in time detected, clearing all timings. clock_time_since_last_message.to_sec() = {}".format(clock_time_since_last_message.to_sec()))
                 self.timings.clear()
             elif clock_time_since_last_message.is_zero():
-                # Duplicate time messages to indicate time has stopped.
-                rospy.loginfo("Duplicate time message received, Assuming time paused.")
+                # Duplicate time messages to indicate time has paused.
                 self.is_paused = True
                 return
             else:
@@ -135,7 +133,7 @@ class ClockTimings():
                 # Check whether we should clear all stored timings as it's been a while since a stored message.
                 # Also, If it was previously paused, then unpause it and clear all timings.
                 if wall_time_since_last_clock_message_seconds > CLEAR_HISTORY_TIMEOUT or self.is_paused:
-                    rospy.loginfo("Clearing all timings. self.is_paused = {}, wall_time_since_last_clock_message_seconds = {}".format(self.is_paused, wall_time_since_last_clock_message_seconds))
+                    # Clearing all timings
                     self.timings.clear()
 
                 self.is_paused = False

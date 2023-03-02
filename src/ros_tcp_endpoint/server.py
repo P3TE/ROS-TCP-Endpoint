@@ -169,13 +169,6 @@ class TcpServer:
             clock_timings.get_current_time_scale(), 
             clock_timings.get_is_paused(),
             clock_timings.should_reset_clock_time)
-        
-        if clock_timings.get_is_paused():
-            rospy.loginfo("[Paused] time scale = {}".format(clock_timings.get_current_time_scale()))
-        elif clock_timings.use_time_scale_from_topic:
-            rospy.loginfo("[Topic] time scale = {}".format(clock_timings.get_current_time_scale()))
-        else:
-            rospy.loginfo("[Approx] time scale = {}".format(clock_timings.get_current_time_scale()))
 
     def handle_syscommand(self, topic, data):
         try:
