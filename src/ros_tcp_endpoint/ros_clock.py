@@ -26,6 +26,8 @@ NO_TIMESCALE_MESSAGE_TIMEOUT_SECONDS=1.0
 # If this many seconds pass without a /clock message, 
 # but then a new /clock message is received, it will clear the history
 CLEAR_HISTORY_TIMEOUT=1.0
+# If no /clock messages are received for this many seconds, it will pause time
+NO_CLOCK_MESSAGE_AUTO_PAUSE_TIMEOUT_SECONDS=0.2
 
 class ClockTiming():
     """
@@ -56,8 +58,21 @@ class ClockTimings():
         self.is_paused = False
         self.should_reset_clock_time = False
 
+        self.any_clock_messages_received = False
+        self.time_of_last_received_clock_message = None
+
+    def get_is_paused(self):
+        if not self.any_clock_messages_received:
+            return True
+        
+        seconds_since_last_clock_message = time.time() - self.time_of_last_received_clock_message
+        if seconds_since_last_clock_message > NO_CLOCK_MESSAGE_AUTO_PAUSE_TIMEOUT_SECONDS:
+            return True
+        
+        return self.is_paused
+
     def get_current_time_scale(self):
-        if self.is_paused:
+        if self.get_is_paused():
             return 0.0
 
         if self.use_time_scale_from_topic:
@@ -90,14 +105,8 @@ class ClockTimings():
 
         self.approximate_timescale = clock_time_difference_total_seconds / wall_time_difference_total_seconds
 
-        if self.is_paused:
-            rospy.loginfo("[Paused] time scale = {}".format(self.get_current_time_scale()))
-        elif self.use_time_scale_from_topic:
-            rospy.loginfo("[Topic] time scale = {}".format(self.get_current_time_scale()))
-        else:
-            rospy.loginfo("[Approx] time scale = {}".format(self.get_current_time_scale()))
-
     def on_new_entry_received(self, clock_time: rospy.Time):
+
         wall_time = time.time()
 
         if self.use_time_scale_from_topic:
@@ -139,6 +148,9 @@ class ClockTimings():
         self.timings.append(clock_timing)
 
         self.update_estimated_timescale()
+
+        self.any_clock_messages_received = True
+        self.time_of_last_received_clock_message = time.time()
 
     def on_time_scale_from_topic_received(self, time_scale: float):
 

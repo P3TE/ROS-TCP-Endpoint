@@ -73,14 +73,11 @@ class TcpServer:
         self.pending_srv_is_request = False
 
         self.use_sim_time = rospy.get_param("/use_sim_time", False)
-        if not self.use_sim_time:
-            # Start Subscriber listener function
-            rospy.loginfo("use_sim_time is false, assuming ros wall time will be used.")
-            # TODO - Implement.
-            self.clock_timings = ClockTimings()
-            self.clock_sub = rospy.Subscriber('/clock', Clock, self.on_clock_received)
-            self.time_scale_sub = rospy.Subscriber('/time_scale', Float32, self.on_time_scale_received)
-            self.time_of_last_relayed_clock = None
+        
+        self.clock_timings = ClockTimings()
+        self.clock_sub = rospy.Subscriber('/clock', Clock, self.on_clock_received)
+        self.time_scale_sub = rospy.Subscriber('/time_scale', Float32, self.on_time_scale_received)
+        self.time_of_last_relayed_clock = None
 
     def on_clock_received(self, clock: Clock):
         self.clock_timings.on_new_entry_received(clock.clock)
@@ -101,18 +98,17 @@ class TcpServer:
         server_thread.daemon = True
         server_thread.start()
 
-        if self.clock_timings is not None:
-            clock_info_relay_thread = threading.Thread(target=self.relay_clock_info_loop)
-            # daemon = True means the program can automatically exit even if this thread is still running.
-            clock_info_relay_thread.daemon = True
-            clock_info_relay_thread.start()
+        clock_info_relay_thread = threading.Thread(target=self.relay_clock_info_loop)
+        # daemon = True means the program can automatically exit even if this thread is still running.
+        clock_info_relay_thread.daemon = True
+        clock_info_relay_thread.start()
 
     def relay_clock_info_loop(self):
         """
             This thread ensures that new clock info messages are sent through at a regular rate
             whether or not the /clock or /time_scale topics have data being published.
         """
-        MAX_TIME_BETWEEN_CLOCK_INFOS_SECONDS = 0.1
+        MAX_TIME_BETWEEN_CLOCK_INFOS_SECONDS = 0.05
 
         while True:
 
@@ -171,8 +167,15 @@ class TcpServer:
         self.unity_tcp_sender.send_clock_info(
             clock_timings.get_current_clock_time(), 
             clock_timings.get_current_time_scale(), 
-            clock_timings.is_paused,
+            clock_timings.get_is_paused(),
             clock_timings.should_reset_clock_time)
+        
+        if clock_timings.get_is_paused():
+            rospy.loginfo("[Paused] time scale = {}".format(clock_timings.get_current_time_scale()))
+        elif clock_timings.use_time_scale_from_topic:
+            rospy.loginfo("[Topic] time scale = {}".format(clock_timings.get_current_time_scale()))
+        else:
+            rospy.loginfo("[Approx] time scale = {}".format(clock_timings.get_current_time_scale()))
 
     def handle_syscommand(self, topic, data):
         try:
