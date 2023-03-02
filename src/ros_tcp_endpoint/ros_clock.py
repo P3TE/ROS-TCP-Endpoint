@@ -89,7 +89,13 @@ class ClockTimings():
 
     def update_estimated_timescale(self):
         if len(self.timings) <= 1:
-            self.approximate_timescale = DEFAULT_TIME_SCALE
+
+            if self.any_clock_messages_received:
+                seconds_since_last_clock_message = time.time() - self.time_of_last_received_clock_message
+                if seconds_since_last_clock_message > NO_CLOCK_MESSAGE_AUTO_PAUSE_TIMEOUT_SECONDS:
+                    # Only reset to the default time scale when we've not received a clock message for a while.
+                    self.approximate_timescale = DEFAULT_TIME_SCALE
+
             self.should_reset_clock_time = True
             return
 
@@ -105,8 +111,7 @@ class ClockTimings():
 
         self.approximate_timescale = clock_time_difference_total_seconds / wall_time_difference_total_seconds
 
-    def on_new_entry_received(self, clock_time: rospy.Time):
-
+    def store_new_entry(self, clock_time: rospy.Time):
         wall_time = time.time()
 
         if self.use_time_scale_from_topic:
@@ -146,6 +151,10 @@ class ClockTimings():
         self.timings.append(clock_timing)
 
         self.update_estimated_timescale()
+
+    def on_new_entry_received(self, clock_time: rospy.Time):
+
+        self.store_new_entry(clock_time)
 
         self.any_clock_messages_received = True
         self.time_of_last_received_clock_message = time.time()
