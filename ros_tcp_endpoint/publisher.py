@@ -16,6 +16,7 @@ import rclpy
 import re
 
 from rclpy.serialization import deserialize_message
+from rclpy.qos import QoSProfile, DurabilityPolicy, HistoryPolicy, ReliabilityPolicy
 
 from .communication import RosSender
 
@@ -25,7 +26,6 @@ class RosPublisher(RosSender):
     Class to publish messages to a ROS topic
     """
 
-    # TODO: surface latch functionality
     def __init__(self, topic, message_class, queue_size=10, latch=False):
         """
 
@@ -38,7 +38,13 @@ class RosPublisher(RosSender):
         node_name = f"{strippedTopic}_RosPublisher"
         RosSender.__init__(self, node_name)
         self.msg = message_class()
-        self.pub = self.create_publisher(message_class, topic, queue_size)
+        
+        if latch:
+            qos_profile = QoSProfile(reliability=ReliabilityPolicy.RELIABLE, durability=DurabilityPolicy.TRANSIENT_LOCAL, history=HistoryPolicy.KEEP_LAST, depth=queue_size)
+        else:
+            qos_profile = queue_size
+
+        self.pub = self.create_publisher(message_class, topic, qos_profile)
 
     def send(self, data):
         """
