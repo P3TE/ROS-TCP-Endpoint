@@ -12,6 +12,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+import traceback
 import rospy
 import socket
 import logging
@@ -184,7 +185,7 @@ class TcpServer:
                 function(**params)
             except Exception as e:
                 rospy.logerr("Failed to execute syscommand. JSON = {}".format(message_json))
-                rospy.logerr(e.format_exc())
+                print(traceback.format_exc())
 
     def loginfo(self, text):
         rospy.loginfo(text)
