@@ -179,8 +179,12 @@ class TcpServer:
             self.send_unity_error("Don't understand SysCommand.'{}'".format(topic))
         else:
             message_json = data.decode("utf-8")
-            params = json.loads(message_json)
-            function(**params)
+            try:
+                params = json.loads(message_json)
+                function(**params)
+            except Exception as e:
+                rospy.logerr("Failed to execute syscommand. JSON = {}".format(message_json))
+                rospy.logerr(e.format_exc())
 
     def loginfo(self, text):
         rospy.loginfo(text)
