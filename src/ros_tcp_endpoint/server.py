@@ -185,7 +185,7 @@ class TcpServer:
                 function(**params)
             except Exception as e:
                 rospy.logerr("Failed to execute syscommand. JSON = {}".format(message_json))
-                print(traceback.format_exc())
+                rospy.logerr(traceback.format_exc())
 
     def loginfo(self, text):
         rospy.loginfo(text)
